@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: pa-db
+    restart: always
+    environment:
+      POSTGRES_USER: pa
+      POSTGRES_PASSWORD: pa
+      POSTGRES_DB: product_analytics
+    volumes:
+      - pa_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pa -d product_analytics"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    image: pa-backend:latest
+    container_name: pa-backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pa:pa@db:5432/product_analytics
+      AUTO_SEED: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8090:8000"
+
+  frontend:
+    build: ./web
+    image: pa-frontend:latest
+    container_name: pa-frontend
+    restart: always
+    ports:
+      - "3010:80"
+    depends_on:
+      - backend
+
+volumes:
+  pa_pgdata:

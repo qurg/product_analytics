@@ -1,0 +1,45 @@
+# 服务器部署用：镜像在本地构建好后 docker load，这里不触发 build。
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: pa-db
+    restart: always
+    pull_policy: never  # 服务器无外网：只用本地已 load 的镜像，绝不拉取
+    environment:
+      POSTGRES_USER: pa
+      POSTGRES_PASSWORD: pa
+      POSTGRES_DB: product_analytics
+    volumes:
+      - pa_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pa -d product_analytics"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: pa-backend:latest
+    container_name: pa-backend
+    restart: always
+    pull_policy: never
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pa:pa@db:5432/product_analytics
+      AUTO_SEED: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8090:8000"
+
+  frontend:
+    image: pa-frontend:latest
+    container_name: pa-frontend
+    restart: always
+    pull_policy: never
+    ports:
+      - "3010:80"
+    depends_on:
+      - backend
+
+volumes:
+  pa_pgdata:
