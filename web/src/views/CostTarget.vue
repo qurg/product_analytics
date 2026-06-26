@@ -67,7 +67,7 @@ function renderChart() {
   const s0 = trend.value.series[0] || {}
   chart.setOption({
     color: COLORS,
-    tooltip: { trigger: 'axis', valueFormatter: (v) => (v == null ? '' : v.toLocaleString()) },
+    tooltip: { trigger: 'axis', valueFormatter: (v) => (v == null ? '' : fmt(v)) },
     legend: { data: series.map((s) => s.name), top: 0, type: 'scroll' },
     grid: { left: 60, right: 20, top: 36, bottom: 40 },
     xAxis: { type: 'time' },
@@ -115,7 +115,9 @@ async function saveBatch() {
     toast.value = `已保存 ${res.saved} 条`; showEntry.value = false; await load()
   } finally { saving.value = false }
 }
-const fmt = (v) => (v == null ? '—' : Number(v).toLocaleString())
+// 大额(如FEU运费,千级)显示整数, 其余(CBM/kg/元费率)保留2位
+const fmt = (v) => (v == null ? '—'
+  : Number(v).toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) >= 1000 ? 0 : 2 }))
 function exportXlsx() { window.location.href = '/api/cost/export' }
 
 watch(sel, () => load())
