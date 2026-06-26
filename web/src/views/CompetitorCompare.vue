@@ -117,7 +117,7 @@ onMounted(async () => {
             <td>{{ r.tier }}</td>
             <td v-for="v in data.vendors" :key="v"
                 :style="r.cheapest === v ? 'background:var(--green-bg)' : ''">
-              {{ fmt(r.prices[v]) }}<span v-if="r.mixed_currency && r.prices[v] != null" style="color:var(--text3);font-size:11px"> {{ r.currencies[v] }}</span><span v-if="r.flat && r.flat[v]" title="该承运商为区间统一平价(单档)，已广播到本行" style="color:var(--text3);font-size:10px;margin-left:3px">平价</span>
+              {{ fmt(r.prices[v]) }}<span v-if="r.mixed_currency && r.prices[v] != null" style="color:var(--text3);font-size:11px"> {{ r.currencies[v] }}</span><span v-if="r.fill && r.fill[v]" :title="r.fill[v]==='平价' ? '区间统一平价(单档)' : '该承运商无此档，按计费规则取覆盖该重量的上一档价'" style="color:var(--text3);font-size:10px;margin-left:3px">{{ r.fill[v] }}</span>
             </td>
             <td>{{ r.mixed_currency ? '币种不一' : (r.cheapest || '—') }}</td>
             <td :class="r.our_vs_best > 0 ? 'c-red' : 'c-green'">
@@ -128,7 +128,7 @@ onMounted(async () => {
         </tbody>
       </table>
       <p style="font-size:12px;color:var(--text3);margin-top:12px">
-        绿色=该档最低价；「我司vs最低」为正表示京东比最便宜竞对贵的百分比。仓内：入库/出库按单件重量档，存储按货型首计费档；均同币种内对比。
+        绿色=该档最低价；「我司vs最低」为正表示京东比最便宜竞对贵的百分比。<b>平价</b>=该承运商整段一口价；<b>↑档</b>=无此重量档，按计费规则取覆盖该重量的上一档价；超过其最大档则留空。仓内：入库/出库按单件重量档，存储按货型首计费档；均同币种内对比。
       </p>
     </div>
     <div class="card" v-else-if="!loading">

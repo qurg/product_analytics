@@ -116,9 +116,11 @@ async def compare(
         if r.note:
             notes[k] = r.note
 
-    # 平价广播: 某承运商在某分区仅有"单一kg档"(如京东 RoyalMail 0-20kg 一个价),
-    # 视为该重量上限内的统一平价, 广播到其覆盖的每个重量行, 便于逐档横比。
-    flat_cells = set()  # 记录被广播填充的 (zone,tier,vendor), 前端可标注
+    # 档位填充: 计费规则为"重量落入哪档按该档上限收费"。某承运商缺某重量档时,
+    # 用其"覆盖该重量的最小档"(即 ≥该重量 的最近档)填充, 便于逐档横比。
+    #   单档承运商(如京东 0-20 一口价) -> 各档同价, 标"平价"
+    #   多档承运商(阶梯价) -> 取上一档, 标"↑档"
+    fill_cells = {}  # (zone,tier,vendor) -> "平价"|"↑档"
     if not use_size:
         def kgnum(t):
             ts = str(t)
@@ -126,29 +128,27 @@ async def compare(
                 return None
             m = re.findall(r"[\d.]+", ts)
             return float(m[-1]) if m else None
-        by_zone = defaultdict(lambda: defaultdict(list))  # zone -> vendor -> [(upper,tier)]
-        for (z, t), pr in grouped.items():
-            u = kgnum(t)
-            if u is None:
-                continue
-            for v in pr:
-                by_zone[z][v].append((u, t))
-        for z, vmap in by_zone.items():
-            for v, lst in vmap.items():
-                uppers = {u for u, _ in lst}
-                if len(uppers) != 1:
-                    continue  # 多档=阶梯价, 不广播
-                u0, t0 = lst[0]
-                p0 = grouped[(z, t0)][v]
-                c0 = cur_of[(z, t0)].get(v)
-                for (zz, t), pr in grouped.items():
-                    if zz != z:
+        for z in zones_set:
+            rowtiers = sorted(
+                {t for (zz, t) in grouped if zz == z and kgnum(t) is not None},
+                key=kgnum)
+            vend = defaultdict(list)  # vendor -> [(upper, tier)]
+            for t in rowtiers:
+                for v in grouped[(z, t)]:
+                    vend[v].append((kgnum(t), t))
+            for v, lst in vend.items():
+                single = len({u for u, _ in lst}) == 1
+                for t in rowtiers:
+                    if v in grouped[(z, t)]:
                         continue
-                    u = kgnum(t)
-                    if u is not None and u <= u0 and v not in pr:
-                        pr[v] = p0
-                        cur_of[(zz, t)][v] = c0
-                        flat_cells.add((zz, t, v))
+                    W = kgnum(t)
+                    cand = [(u, tt) for u, tt in lst if u >= W]  # 覆盖W的档
+                    if not cand:
+                        continue  # W 超过该承运商最大档 -> 留空
+                    _, src = min(cand)
+                    grouped[(z, t)][v] = grouped[(z, src)][v]
+                    cur_of[(z, t)][v] = cur_of[(z, src)].get(v)
+                    fill_cells[(z, t, v)] = "平价" if single else "↑档"
 
     multi_zone = len(zones_set) > 1 or (zones_set and "统一" not in zones_set)
 
@@ -193,7 +193,7 @@ async def compare(
             "tier": t,
             "prices": {v: prices.get(v) for v in vendors},
             "currencies": {v: cur_of[k].get(v) for v in vendors},
-            "flat": {v: ((z, t, v) in flat_cells) for v in vendors},
+            "fill": {v: fill_cells.get((z, t, v), "") for v in vendors},
             "cheapest": cheapest,
             "our_vs_best": diff,
             "mixed_currency": mixed,
