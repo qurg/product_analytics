@@ -184,7 +184,8 @@ async def last_period(biz_type: str = "海运", transport_type: str | None = Non
         _scope(select(CostLane), biz_type, transport_type, region).order_by(CostLane.id)
     )).scalars().all()
     rows = []
-    latest_end = None
+    latest_eff = None   # 最近生效的一期(用它的结束日推下一期, 避免被个别长效期带偏)
+    latest_eff_end = None
     for l in lanes:
         t = (await db.execute(
             select(CostTrack).where(CostTrack.lane_id == l.id)
@@ -197,9 +198,11 @@ async def last_period(biz_type: str = "海运", transport_type: str | None = Non
             "last_amount": float(t.amount) if t else None,
             "last_end": t.end_date.isoformat() if t and t.end_date else None,
         })
-        if t and t.end_date and (latest_end is None or t.end_date > latest_end):
-            latest_end = t.end_date
-    suggest_eff = (latest_end + timedelta(days=1)).isoformat() if latest_end else None
+        if t and (latest_eff is None or t.effective_date > latest_eff):
+            latest_eff = t.effective_date
+            latest_eff_end = t.end_date
+    base = latest_eff_end or latest_eff
+    suggest_eff = (base + timedelta(days=1)).isoformat() if base else None
     return {"biz_type": biz_type, "rows": rows, "suggest_effective": suggest_eff}
 
 
