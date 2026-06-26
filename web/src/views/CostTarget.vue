@@ -2,16 +2,22 @@
 import { ref, reactive, onMounted, nextTick, computed, watch } from 'vue'
 import * as echarts from 'echarts'
 import {
-  getCostLanes, getCostTrend, getCostCurrent, getCostLastPeriod, saveCostBatch,
+  getCostTrend, getCostCurrent, getCostLastPeriod, saveCostBatch,
 } from '../api'
 
-const biz = ref('海运')           // 海运 / 跨境到仓 / 小包
-const sub = ref('')               // 二级筛选: 跨境=运输类型, 小包=线路
-const subOptions = ref([])
+// 业务线扁平为 4 个选项, 每个映射到 (biz_type, transport_type)
+const BIZ_OPTS = [
+  { label: '跨境运输海运', biz_type: '海运', transport_type: '' },
+  { label: '跨境到仓-海运', biz_type: '跨境到仓', transport_type: '海运' },
+  { label: '跨境到仓-空运', biz_type: '跨境到仓', transport_type: '空运' },
+  { label: '小包空运', biz_type: '小包', transport_type: '' },
+]
+const sel = ref('跨境运输海运')
+const opt = computed(() => BIZ_OPTS.find((o) => o.label === sel.value) || BIZ_OPTS[0])
+const biz = computed(() => opt.value.biz_type)
+const transport = computed(() => opt.value.transport_type)
 const isCB = computed(() => biz.value === '跨境到仓')
 const isSP = computed(() => biz.value === '小包')
-const subLabel = computed(() => (isCB.value ? '运输类型' : ''))
-const hasSub = computed(() => isCB.value)  // 仅跨境有二级筛选; 小包直接列3条线路
 
 const trend = ref({ series: [] })
 const current = ref({ rows: [] })
@@ -29,17 +35,8 @@ const COLORS = ['#4285F4', '#34A853', '#F29900', '#9334E6', '#EA4335', '#00ACC1'
 
 function params() {
   const p = { biz_type: biz.value }
-  if (isCB.value) p.transport_type = sub.value
+  if (transport.value) p.transport_type = transport.value
   return p
-}
-
-// 切业务线时刷新二级筛选项
-async function refreshSub() {
-  if (!hasSub.value) { subOptions.value = []; sub.value = ''; return }
-  const lanes = await getCostLanes({ biz_type: biz.value })
-  const key = isCB.value ? 'transport_type' : 'region'
-  subOptions.value = [...new Set(lanes.map((l) => l[key]).filter(Boolean))]
-  if (!subOptions.value.includes(sub.value)) sub.value = subOptions.value[0] || ''
 }
 
 async function load() {
@@ -117,19 +114,15 @@ async function saveBatch() {
 }
 const fmt = (v) => (v == null ? '—' : Number(v).toLocaleString())
 
-watch(biz, async () => { await refreshSub(); await load() })
-watch(sub, () => { if (hasSub.value) load() })
-onMounted(async () => { await refreshSub(); await load() })
+watch(sel, () => load())
+onMounted(() => load())
 window.addEventListener('resize', () => chart && chart.resize())
 </script>
 
 <template>
   <div class="filters">
     <div class="filter-group"><label>业务线</label>
-      <select v-model="biz"><option>海运</option><option>跨境到仓</option><option>小包</option></select>
-    </div>
-    <div class="filter-group" v-if="hasSub"><label>{{ subLabel }}</label>
-      <select v-model="sub"><option v-for="o in subOptions" :key="o" :value="o">{{ o }}</option></select>
+      <select v-model="sel"><option v-for="o in BIZ_OPTS" :key="o.label" :value="o.label">{{ o.label }}</option></select>
     </div>
     <button class="btn" @click="openEntry">＋ 开一期录入</button>
     <span class="spacer" style="margin-left:auto;font-size:12px;color:var(--text3)">目标成本 · 市场价跟踪</span>
@@ -138,7 +131,7 @@ window.addEventListener('resize', () => chart && chart.resize())
   <div class="page" style="max-width:none">
     <div class="card" v-if="showEntry" style="margin-bottom:12px;border:1px solid var(--blue)">
       <div class="card-header" style="position:static">
-        <h3>开一期目标成本（{{ biz }}<span v-if="hasSub"> · {{ sub }}</span>）</h3>
+        <h3>开一期目标成本（{{ sel }}）</h3>
         <div class="row" style="gap:8px">
           <label style="font-size:13px">生效日期 <input type="date" v-model="entry.effective_date" class="inp" /></label>
           <label style="font-size:13px">结束日期 <input type="date" v-model="entry.end_date" class="inp" /></label>
@@ -170,7 +163,7 @@ window.addEventListener('resize', () => chart && chart.resize())
 
     <div class="card" style="margin-bottom:12px">
       <div class="card-header" style="position:static">
-        <h3>目标成本趋势<span v-if="hasSub" style="color:var(--text3);font-size:12px"> · {{ sub }}（点{{ isSP ? 'PD' : '线路' }}加入对比）</span></h3>
+        <h3>目标成本趋势 <span style="color:var(--text3);font-size:12px">（点{{ isCB ? '区域' : '线路' }}加入对比）</span></h3>
         <div class="chips" style="flex-wrap:wrap;max-width:70%;justify-content:flex-end">
           <span v-for="s in trend.series" :key="s.lane" class="chip"
                 :class="{ active: selectedLanes.includes(s.lane) }" @click="toggleLane(s.lane)">{{ s.lane }}</span>
