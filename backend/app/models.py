@@ -1,4 +1,6 @@
-from sqlalchemy import Integer, Numeric, String
+from datetime import date, datetime
+
+from sqlalchemy import Date, DateTime, Integer, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -22,3 +24,39 @@ class CompetitorPrice(Base):
     price: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
     unit: Mapped[str] = mapped_column(String(32), default="")
     note: Mapped[str] = mapped_column(String(255), default="")
+
+
+class CostLane(Base):
+    """目标成本-线路主数据（固定属性，建一次少动）。海运先行，结构兼容跨境/小包。"""
+
+    __tablename__ = "cost_lanes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    biz_type: Mapped[str] = mapped_column(String(16), index=True)  # 海运/跨境到仓/小包
+    lane: Mapped[str] = mapped_column(String(64), index=True)      # 线路名 美西/美东...
+    origin_ports: Mapped[str] = mapped_column(String(255), default="")  # 起运港
+    dest_ports: Mapped[str] = mapped_column(String(255), default="")    # 目的港
+    pd: Mapped[str] = mapped_column(String(64), default="")
+    carrier: Mapped[str] = mapped_column(String(64), default="")        # 船东
+    container_type: Mapped[str] = mapped_column(String(16), default="") # 柜型
+    unit: Mapped[str] = mapped_column(String(16), default="")           # 计费单位 FEU
+    currency: Mapped[str] = mapped_column(String(8), default="USD")
+    extra_fee: Mapped[float] = mapped_column(Numeric(18, 2), nullable=True)  # 起运港费
+    extra_fee_name: Mapped[str] = mapped_column(String(32), default="")
+    note: Mapped[str] = mapped_column(String(255), default="")
+
+
+class CostTrack(Base):
+    """目标成本-时间序列（每期变动的就这条）。"""
+
+    __tablename__ = "cost_track"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    lane_id: Mapped[int] = mapped_column(Integer, index=True)
+    effective_date: Mapped[date] = mapped_column(Date, index=True)
+    end_date: Mapped[date] = mapped_column(Date, nullable=True)
+    amount: Mapped[float] = mapped_column(Numeric(18, 2))
+    source: Mapped[str] = mapped_column(String(16), default="手工")  # 导入/手工
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

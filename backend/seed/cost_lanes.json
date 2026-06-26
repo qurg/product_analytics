@@ -1,0 +1,80 @@
+[
+ {
+  "biz_type": "海运",
+  "lane": "美西",
+  "origin_ports": "TAO,TXG,SHA,NGB,YTN",
+  "dest_ports": "LAX,LGB",
+  "pd": "SPB410007",
+  "carrier": "COSCO,CMA",
+  "container_type": "40HC",
+  "unit": "FEU",
+  "currency": "USD",
+  "extra_fee": 350.0,
+  "extra_fee_name": "起运港费用"
+ },
+ {
+  "biz_type": "海运",
+  "lane": "美东",
+  "origin_ports": "TAO,TXG,SHA,NGB,YTN",
+  "dest_ports": "SAV,NYC",
+  "pd": "SPB410007",
+  "carrier": "COSCO,CMA",
+  "container_type": "40HC",
+  "unit": "FEU",
+  "currency": "USD",
+  "extra_fee": 350.0,
+  "extra_fee_name": "起运港费用"
+ },
+ {
+  "biz_type": "海运",
+  "lane": "欧洲",
+  "origin_ports": "TAO,TXG,SHA,NGB,YTN",
+  "dest_ports": "RTM,ANR,FXT,SOU,HAM,GDA,LEH",
+  "pd": "SPB410007",
+  "carrier": "COSCO,MSC",
+  "container_type": "40HC",
+  "unit": "FEU",
+  "currency": "USD",
+  "extra_fee": 350.0,
+  "extra_fee_name": "起运港费用"
+ },
+ {
+  "biz_type": "海运",
+  "lane": "地西",
+  "origin_ports": "TAO,TXG,SHA,NGB,YTN",
+  "dest_ports": "PIP,GOA,SPE,VLC,NAP,FOS,RAV,VGO",
+  "pd": "SPB410007",
+  "carrier": "COSCO,MSC",
+  "container_type": "40HC",
+  "unit": "FEU",
+  "currency": "USD",
+  "extra_fee": 350.0,
+  "extra_fee_name": "起运港费用"
+ },
+ {
+  "biz_type": "海运",
+  "lane": "地东",
+  "origin_ports": "TAO,TXG,SHA,NGB,YTN",
+  "dest_ports": "IST,MER,KOP,RJK,EYP,CTA,TRS",
+  "pd": "SPB410007",
+  "carrier": "COSCO,MSC",
+  "container_type": "40HC",
+  "unit": "FEU",
+  "currency": "USD",
+  "extra_fee": 350.0,
+  "extra_fee_name": "起运港费用"
+ },
+ {
+  "biz_type": "海运",
+  "lane": "澳洲",
+  "origin_ports": "TAO,TXG,SHA,NGB,SHK",
+  "dest_ports": "SYD, MEL,BNE,FRE,ADE",
+  "pd": "SPB410007",
+  "carrier": "COSCO",
+  "container_type": "40HC",
+  "unit": "FEU",
+  "currency": "USD",
+  "extra_fee": 350.0,
+  "extra_fee_name": "起运港费用"
+ }
+]

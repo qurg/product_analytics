@@ -4,14 +4,54 @@
 """
 
 import json
+from datetime import date
 from pathlib import Path
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import CompetitorPrice
+from .models import CompetitorPrice, CostLane, CostTrack
 
 SEED_DIR = Path(__file__).resolve().parent.parent / "seed"
+
+
+def _d(s):
+    return date.fromisoformat(s) if s else None
+
+
+async def seed_cost_if_empty(db: AsyncSession) -> None:
+    """目标成本：线路主数据 + 历史时间序列（海运）。"""
+    count = await db.scalar(select(func.count()).select_from(CostLane))
+    if count and count > 0:
+        return
+    lanes_fp = SEED_DIR / "cost_lanes.json"
+    track_fp = SEED_DIR / "cost_track.json"
+    if not lanes_fp.exists():
+        return
+    lane_id = {}
+    for r in json.loads(lanes_fp.read_text(encoding="utf-8")):
+        obj = CostLane(
+            biz_type=r["biz_type"], lane=r["lane"],
+            origin_ports=r.get("origin_ports", ""), dest_ports=r.get("dest_ports", ""),
+            pd=r.get("pd", ""), carrier=r.get("carrier", ""),
+            container_type=r.get("container_type", ""), unit=r.get("unit", ""),
+            currency=r.get("currency", "USD"), extra_fee=r.get("extra_fee"),
+            extra_fee_name=r.get("extra_fee_name", ""),
+        )
+        db.add(obj)
+        await db.flush()
+        lane_id[(r["biz_type"], r["lane"])] = obj.id
+    if track_fp.exists():
+        for t in json.loads(track_fp.read_text(encoding="utf-8")):
+            lid = lane_id.get(("海运", t["lane"]))
+            if not lid:
+                continue
+            db.add(CostTrack(
+                lane_id=lid, effective_date=_d(t["effective_date"]),
+                end_date=_d(t.get("end_date")), amount=t["amount"],
+                source=t.get("source", "导入"),
+            ))
+    await db.commit()
 
 
 async def seed_competitor_if_empty(db: AsyncSession) -> None:
