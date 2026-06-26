@@ -51,6 +51,36 @@ async def seed_cost_if_empty(db: AsyncSession) -> None:
                 end_date=_d(t.get("end_date")), amount=t["amount"],
                 source=t.get("source", "导入"),
             ))
+
+    # 跨境到仓（海运+空运），按 目的仓|运输类型 路由
+    cb_lanes_fp = SEED_DIR / "cost_lanes_cb.json"
+    cb_track_fp = SEED_DIR / "cost_track_cb.json"
+    if cb_lanes_fp.exists():
+        key_id = {}
+        for r in json.loads(cb_lanes_fp.read_text(encoding="utf-8")):
+            obj = CostLane(
+                biz_type=r["biz_type"], lane=r["lane"],
+                transport_type=r.get("transport_type", ""),
+                origin_ports=r.get("origin_ports", ""), dest_ports=r.get("dest_ports", ""),
+                warehouse_code=r.get("warehouse_code", ""),
+                warehouse_name=r.get("warehouse_name", ""),
+                warehouse_type=r.get("warehouse_type", ""),
+                country=r.get("country", ""), pd=r.get("pd", ""),
+                unit=r.get("unit", ""), currency=r.get("currency", "USD"),
+            )
+            db.add(obj)
+            await db.flush()
+            key_id[r["_key"]] = obj.id
+        if cb_track_fp.exists():
+            for t in json.loads(cb_track_fp.read_text(encoding="utf-8")):
+                lid = key_id.get(t["key"])
+                if not lid:
+                    continue
+                db.add(CostTrack(
+                    lane_id=lid, effective_date=_d(t["effective_date"]),
+                    end_date=_d(t.get("end_date")), amount=t["amount"],
+                    source=t.get("source", "导入"),
+                ))
     await db.commit()
 
 

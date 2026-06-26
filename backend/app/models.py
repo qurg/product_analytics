@@ -33,9 +33,14 @@ class CostLane(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     biz_type: Mapped[str] = mapped_column(String(16), index=True)  # 海运/跨境到仓/小包
-    lane: Mapped[str] = mapped_column(String(64), index=True)      # 线路名 美西/美东...
+    lane: Mapped[str] = mapped_column(String(64), index=True)      # 线路名/目的仓名
+    transport_type: Mapped[str] = mapped_column(String(8), default="")  # 空运/海运(跨境用)
     origin_ports: Mapped[str] = mapped_column(String(255), default="")  # 起运港
     dest_ports: Mapped[str] = mapped_column(String(255), default="")    # 目的港
+    warehouse_code: Mapped[str] = mapped_column(String(64), default="")
+    warehouse_name: Mapped[str] = mapped_column(String(64), default="")
+    warehouse_type: Mapped[str] = mapped_column(String(16), default="")
+    country: Mapped[str] = mapped_column(String(16), default="")
     pd: Mapped[str] = mapped_column(String(64), default="")
     carrier: Mapped[str] = mapped_column(String(64), default="")        # 船东
     container_type: Mapped[str] = mapped_column(String(16), default="") # 柜型

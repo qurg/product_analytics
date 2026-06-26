@@ -15,14 +15,14 @@ export const getCompetitorCompare = (params) =>
   http.get('/competitor/compare', { params }).then((r) => r.data)
 
 // 目标成本
-export const getCostLanes = (biz_type = '海运') =>
-  http.get('/cost/lanes', { params: { biz_type } }).then((r) => r.data)
-export const getCostTrend = (biz_type = '海运') =>
-  http.get('/cost/trend', { params: { biz_type } }).then((r) => r.data)
-export const getCostCurrent = (biz_type = '海运') =>
-  http.get('/cost/current', { params: { biz_type } }).then((r) => r.data)
-export const getCostLastPeriod = (biz_type = '海运') =>
-  http.get('/cost/last_period', { params: { biz_type } }).then((r) => r.data)
+export const getCostLanes = (params) =>
+  http.get('/cost/lanes', { params }).then((r) => r.data)
+export const getCostTrend = (params) =>
+  http.get('/cost/trend', { params }).then((r) => r.data)
+export const getCostCurrent = (params) =>
+  http.get('/cost/current', { params }).then((r) => r.data)
+export const getCostLastPeriod = (params) =>
+  http.get('/cost/last_period', { params }).then((r) => r.data)
 export const saveCostBatch = (body) =>
   http.post('/cost/track/batch', body).then((r) => r.data)
 export const deleteCostTrack = (tid) =>
