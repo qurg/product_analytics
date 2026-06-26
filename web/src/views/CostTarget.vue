@@ -45,8 +45,13 @@ async function refreshSub() {
 async function load() {
   trend.value = await getCostTrend(params())
   current.value = await getCostCurrent(params())
-  const all = trend.value.series.map((s) => s.lane)
-  selectedLanes.value = all.slice(0, all.length > 8 ? 6 : all.length)
+  // 默认选中"多数币种"的线路, 避免异币种(如韩日KRW)压扁同图其它线
+  const curCount = {}
+  trend.value.series.forEach((s) => { curCount[s.currency] = (curCount[s.currency] || 0) + 1 })
+  const majorCur = Object.keys(curCount).sort((a, b) => curCount[b] - curCount[a])[0]
+  let def = trend.value.series.filter((s) => s.currency === majorCur).map((s) => s.lane)
+  if (!def.length) def = trend.value.series.map((s) => s.lane)
+  selectedLanes.value = def.slice(0, def.length > 8 ? 6 : def.length)
   await nextTick()
   renderChart()
 }
