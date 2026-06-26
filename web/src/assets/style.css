@@ -18,7 +18,7 @@ header h1{font-family:'Google Sans',sans-serif;font-size:18px;font-weight:500}
 .nav a.router-link-active{background:var(--blue-bg);color:var(--blue)}
 header .spacer{margin-left:auto;font-size:12px;color:var(--text3)}
 
-.filters{background:var(--surface);padding:12px 24px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;border-bottom:1px solid var(--border)}
+.filters{background:var(--surface);padding:12px 24px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;border-bottom:1px solid var(--border);position:sticky;top:64px;z-index:15}
 .filter-group{display:flex;align-items:center;gap:8px}
 .filter-group label{font-size:13px;color:var(--text2);white-space:nowrap;font-weight:500}
 .filter-group select{
@@ -63,6 +63,8 @@ input[type=number],select.inp{border:1px solid var(--border);border-radius:4px;p
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border)}
 th{color:var(--text3);font-weight:500;text-transform:uppercase;font-size:11px;letter-spacing:.5px}
+/* 竞对表头吸顶: 贴在筛选条(header64 + filters)下方, 滚动时列名常驻 */
+.card thead th{position:sticky;top:122px;background:var(--surface);z-index:5;box-shadow:inset 0 -1px var(--border)}
 .toast{margin-top:12px;padding:10px 14px;border-radius:4px;font-size:13px}
 .toast.ok{background:var(--green-bg);color:#137333}
 .toast.err{background:var(--red-bg);color:#C5221F}
