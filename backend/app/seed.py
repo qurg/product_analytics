@@ -65,7 +65,8 @@ async def seed_cost_if_empty(db: AsyncSession) -> None:
                 warehouse_code=r.get("warehouse_code", ""),
                 warehouse_name=r.get("warehouse_name", ""),
                 warehouse_type=r.get("warehouse_type", ""),
-                country=r.get("country", ""), pd=r.get("pd", ""),
+                country=r.get("country", ""), region=r.get("region", ""),
+                pd=r.get("pd", ""),
                 unit=r.get("unit", ""), currency=r.get("currency", "USD"),
             )
             db.add(obj)

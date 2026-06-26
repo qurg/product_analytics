@@ -22,7 +22,7 @@ def lane_dict(l: CostLane) -> dict:
         "transport_type": l.transport_type,
         "origin_ports": l.origin_ports, "dest_ports": l.dest_ports,
         "warehouse_code": l.warehouse_code, "warehouse_name": l.warehouse_name,
-        "warehouse_type": l.warehouse_type, "country": l.country,
+        "warehouse_type": l.warehouse_type, "country": l.country, "region": l.region,
         "pd": l.pd, "carrier": l.carrier, "container_type": l.container_type,
         "unit": l.unit, "currency": l.currency,
         "extra_fee": float(l.extra_fee) if l.extra_fee is not None else None,

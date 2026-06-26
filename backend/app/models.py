@@ -41,6 +41,7 @@ class CostLane(Base):
     warehouse_name: Mapped[str] = mapped_column(String(64), default="")
     warehouse_type: Mapped[str] = mapped_column(String(16), default="")
     country: Mapped[str] = mapped_column(String(16), default="")
+    region: Mapped[str] = mapped_column(String(16), default="")  # 海运区域(目的港归属)
     pd: Mapped[str] = mapped_column(String(64), default="")
     carrier: Mapped[str] = mapped_column(String(64), default="")        # 船东
     container_type: Mapped[str] = mapped_column(String(16), default="") # 柜型

@@ -159,11 +159,10 @@ window.addEventListener('resize', () => chart && chart.resize())
         本期价已预填上期值，只改变化的；可从 Excel 复制一列价格，点第一格粘贴自动整列填充；Tab/Enter 逐格跳。空着的（如空运待询价）填上即可。
       </p>
       <table>
-        <thead><tr><th>线路/目的仓</th><th v-if="isCB">国家</th><th>上期价</th><th>本期目标成本</th><th></th></tr></thead>
+        <thead><tr><th>{{ isCB ? '区域' : '线路' }}</th><th>上期价</th><th>本期目标成本</th><th></th></tr></thead>
         <tbody>
           <tr v-for="(r, idx) in entry.rows" :key="r.lane_id">
             <td><b>{{ r.lane }}</b> <span style="color:var(--text3);font-size:11px">/{{ r.unit }}</span></td>
-            <td v-if="isCB" style="font-size:12px;color:var(--text3)">{{ r.country }}</td>
             <td style="color:var(--text3)">{{ fmt(r.last_amount) }}</td>
             <td>
               <input type="number" step="0.01" v-model="r.amount" @paste="onPaste($event, idx)"
@@ -199,8 +198,7 @@ window.addEventListener('resize', () => chart && chart.resize())
       <div class="card-header" style="position:static"><h3>当前目标成本 · 环比变动</h3></div>
       <table>
         <thead><tr>
-          <th>{{ isCB ? '目的仓' : '线路' }}</th>
-          <th v-if="isCB">国家</th>
+          <th>{{ isCB ? '区域' : '线路' }}</th>
           <th>目的港</th><th v-if="!isCB">船东</th>
           <th>当前目标成本</th><th>生效区间</th><th>环比上期</th>
           <th v-if="!isCB">起运港费</th>
@@ -208,7 +206,6 @@ window.addEventListener('resize', () => chart && chart.resize())
         <tbody>
           <tr v-for="r in current.rows" :key="r.lane">
             <td><b>{{ r.lane }}</b></td>
-            <td v-if="isCB" style="font-size:12px;color:var(--text3)">{{ r.country }}</td>
             <td style="color:var(--text3);font-size:12px">{{ r.dest_ports }}</td>
             <td v-if="!isCB" style="font-size:12px">{{ r.carrier }}</td>
             <td>
