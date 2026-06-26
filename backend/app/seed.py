@@ -82,6 +82,32 @@ async def seed_cost_if_empty(db: AsyncSession) -> None:
                     end_date=_d(t.get("end_date")), amount=t["amount"],
                     source=t.get("source", "导入"),
                 ))
+
+    # 小包（线路+PD 路由，主跟踪 all-in；揽收/库内/清关入 note 参考）
+    sp_lanes_fp = SEED_DIR / "cost_lanes_sp.json"
+    sp_track_fp = SEED_DIR / "cost_track_sp.json"
+    if sp_lanes_fp.exists():
+        kid = {}
+        for r in json.loads(sp_lanes_fp.read_text(encoding="utf-8")):
+            obj = CostLane(
+                biz_type=r["biz_type"], lane=r["lane"], transport_type="",
+                region=r.get("region", ""), country=r.get("country", ""),
+                pd=r.get("pd", ""), unit=r.get("unit", ""),
+                currency=r.get("currency", "CNY"), note=r.get("note", ""),
+            )
+            db.add(obj)
+            await db.flush()
+            kid[r["_key"]] = obj.id
+        if sp_track_fp.exists():
+            for t in json.loads(sp_track_fp.read_text(encoding="utf-8")):
+                lid = kid.get(t["key"])
+                if not lid:
+                    continue
+                db.add(CostTrack(
+                    lane_id=lid, effective_date=_d(t["effective_date"]),
+                    end_date=_d(t.get("end_date")), amount=t["amount"],
+                    source=t.get("source", "导入"),
+                ))
     await db.commit()
 
 

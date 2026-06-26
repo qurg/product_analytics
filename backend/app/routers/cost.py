@@ -30,18 +30,20 @@ def lane_dict(l: CostLane) -> dict:
     }
 
 
-def _scope(q, biz_type, transport_type):
+def _scope(q, biz_type, transport_type=None, region=None):
     q = q.where(CostLane.biz_type == biz_type)
     if transport_type:
         q = q.where(CostLane.transport_type == transport_type)
+    if region:
+        q = q.where(CostLane.region == region)
     return q
 
 
 @router.get("/lanes")
 async def lanes(biz_type: str = "海运", transport_type: str | None = None,
-                db: AsyncSession = Depends(get_db)):
+                region: str | None = None, db: AsyncSession = Depends(get_db)):
     rows = (await db.execute(
-        _scope(select(CostLane), biz_type, transport_type).order_by(CostLane.id)
+        _scope(select(CostLane), biz_type, transport_type, region).order_by(CostLane.id)
     )).scalars().all()
     return [lane_dict(l) for l in rows]
 
@@ -93,9 +95,10 @@ async def delete_lane(lane_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.get("/trend")
 async def trend(biz_type: str = "海运", transport_type: str | None = None,
-                lane: str | None = None, db: AsyncSession = Depends(get_db)):
+                region: str | None = None, lane: str | None = None,
+                db: AsyncSession = Depends(get_db)):
     """每条线路的目标成本时间序列（喂折线图）。"""
-    lq = _scope(select(CostLane), biz_type, transport_type)
+    lq = _scope(select(CostLane), biz_type, transport_type, region)
     if lane:
         lq = lq.where(CostLane.lane == lane)
     lanes = (await db.execute(lq.order_by(CostLane.id))).scalars().all()
@@ -119,11 +122,12 @@ async def trend(biz_type: str = "海运", transport_type: str | None = None,
 
 @router.get("/current")
 async def current(biz_type: str = "海运", transport_type: str | None = None,
-                  as_of: str | None = None, db: AsyncSession = Depends(get_db)):
+                  region: str | None = None, as_of: str | None = None,
+                  db: AsyncSession = Depends(get_db)):
     """各线路当前生效目标成本 + 环比上一期涨跌（变动预警）。"""
     today = date.fromisoformat(as_of) if as_of else date.today()
     lanes = (await db.execute(
-        _scope(select(CostLane), biz_type, transport_type).order_by(CostLane.id)
+        _scope(select(CostLane), biz_type, transport_type, region).order_by(CostLane.id)
     )).scalars().all()
     rows = []
     for l in lanes:
@@ -134,7 +138,7 @@ async def current(biz_type: str = "海运", transport_type: str | None = None,
         base = {
             "lane": l.lane, "unit": l.unit, "currency": l.currency,
             "transport_type": l.transport_type, "country": l.country,
-            "dest_ports": l.dest_ports, "carrier": l.carrier,
+            "dest_ports": l.dest_ports, "carrier": l.carrier, "note": l.note,
             "extra_fee": float(l.extra_fee) if l.extra_fee is not None else None,
         }
         if not ts:
@@ -167,10 +171,10 @@ async def current(biz_type: str = "海运", transport_type: str | None = None,
 
 @router.get("/last_period")
 async def last_period(biz_type: str = "海运", transport_type: str | None = None,
-                      db: AsyncSession = Depends(get_db)):
+                      region: str | None = None, db: AsyncSession = Depends(get_db)):
     """开新一期时预填：各线路最新一期的价格 + 建议的新生效日期。"""
     lanes = (await db.execute(
-        _scope(select(CostLane), biz_type, transport_type).order_by(CostLane.id)
+        _scope(select(CostLane), biz_type, transport_type, region).order_by(CostLane.id)
     )).scalars().all()
     rows = []
     latest_end = None
@@ -182,6 +186,7 @@ async def last_period(biz_type: str = "海运", transport_type: str | None = Non
         rows.append({
             "lane_id": l.id, "lane": l.lane, "unit": l.unit, "currency": l.currency,
             "transport_type": l.transport_type, "country": l.country,
+            "region": l.region, "note": l.note,
             "last_amount": float(t.amount) if t else None,
             "last_end": t.end_date.isoformat() if t and t.end_date else None,
         })
