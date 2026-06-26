@@ -1,18 +1,21 @@
 <script setup>
 import { ref, reactive, onMounted, nextTick, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
 import {
   getCostTrend, getCostCurrent, getCostLastPeriod, saveCostBatch,
 } from '../api'
 
-// 业务线扁平为 4 个选项, 每个映射到 (biz_type, transport_type)
+const route = useRoute()
+// 业务线扁平为 4 个选项, 每个映射到 (biz_type, transport_type); 由侧边栏二级菜单驱动
 const BIZ_OPTS = [
   { label: '跨境运输海运', biz_type: '海运', transport_type: '' },
   { label: '跨境到仓-海运', biz_type: '跨境到仓', transport_type: '海运' },
   { label: '跨境到仓-空运', biz_type: '跨境到仓', transport_type: '空运' },
   { label: '小包空运', biz_type: '小包', transport_type: '' },
 ]
-const sel = ref('跨境运输海运')
+const LABELS = BIZ_OPTS.map((o) => o.label)
+const sel = ref(LABELS.includes(route.query.line) ? route.query.line : '跨境运输海运')
 const opt = computed(() => BIZ_OPTS.find((o) => o.label === sel.value) || BIZ_OPTS[0])
 const biz = computed(() => opt.value.biz_type)
 const transport = computed(() => opt.value.transport_type)
@@ -116,15 +119,14 @@ const fmt = (v) => (v == null ? '—' : Number(v).toLocaleString())
 function exportXlsx() { window.location.href = '/api/cost/export' }
 
 watch(sel, () => load())
+watch(() => route.query.line, (v) => { if (LABELS.includes(v)) sel.value = v })
 onMounted(() => load())
 window.addEventListener('resize', () => chart && chart.resize())
 </script>
 
 <template>
   <div class="filters">
-    <div class="filter-group"><label>业务线</label>
-      <select v-model="sel"><option v-for="o in BIZ_OPTS" :key="o.label" :value="o.label">{{ o.label }}</option></select>
-    </div>
+    <div class="filter-group"><label style="font-weight:600;color:var(--text)">{{ sel }}</label></div>
     <button class="btn" @click="openEntry">＋ 开一期录入</button>
     <button class="btn btn-ghost" @click="exportXlsx">⬇ 导出全表</button>
     <span class="spacer" style="margin-left:auto;font-size:12px;color:var(--text3)">目标成本 · 市场价跟踪</span>

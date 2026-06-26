@@ -8,7 +8,7 @@ import './assets/style.css'
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-    { path: '/', redirect: '/competitor' },
+    { path: '/', redirect: { path: '/competitor', query: { scope: '仓内' } } },
     { path: '/competitor', component: CompetitorCompare },
     { path: '/cost', component: CostTarget },
   ],

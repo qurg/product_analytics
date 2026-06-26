@@ -1,7 +1,9 @@
 <script setup>
 import { ref, reactive, onMounted, watch, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { getCompetitorDimensions, getCompetitorCarriers, getCompetitorZones, getCompetitorCompare } from '../api'
 
+const route = useRoute()
 const dims = reactive({ vendors: [], countries: [], services: [] })
 const filters = reactive({ country: '', service: '', carrier: '', zone: '' })
 const carriers = ref([])
@@ -10,6 +12,13 @@ const data = ref(null)
 const loading = ref(false)
 
 const VENDOR_COLOR = { 京东: '#4285F4', '4px': '#9334E6', WINIT: '#F29900', 谷仓: '#34A853' }
+const WH_SERVICES = ['入库上架', 'B2C出库', '存储']
+const scope = computed(() => (route.query.scope === '尾程' ? '尾程' : '仓内'))  // 一级菜单二级:仓内/尾程
+// 按一级菜单的"仓内/尾程"过滤服务环节下拉
+const svcOptions = computed(() => {
+  if (scope.value === '尾程') return dims.services.filter((s) => s === '尾程派送')
+  return dims.services.filter((s) => WH_SERVICES.includes(s))
+})
 const isLastmile = computed(() => filters.service === '尾程派送')
 const hasZones = computed(() => zones.value.length > 1 || (zones.value.length === 1 && zones.value[0] !== '统一'))
 
@@ -46,14 +55,21 @@ const fmt = (v) => (v == null ? '—' : Number(v).toLocaleString(undefined, { ma
 const fmtc = (v) => (v == null ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: v >= 100 ? 0 : (v >= 1 ? 2 : 3) }))
 const unitSuffix = (u) => (u || '').replace(/^[A-Z]{3}/, '')
 
+function applyScope() {
+  const opts = svcOptions.value
+  const def = scope.value === '尾程' ? '尾程派送' : 'B2C出库'
+  filters.service = opts.includes(def) ? def : (opts[0] || '')
+}
+
 watch(() => [filters.country, filters.service], async () => { await refreshCarriers(); load() })
 watch(() => filters.carrier, async () => { await refreshZones(); load() })
 watch(() => filters.zone, load)
+watch(scope, () => { applyScope() })  // 切一级菜单(仓内/尾程)时重置服务环节
 
 onMounted(async () => {
   Object.assign(dims, await getCompetitorDimensions())
   filters.country = dims.countries.includes('美国') ? '美国' : dims.countries[0] || ''
-  filters.service = dims.services.includes('B2C出库') ? 'B2C出库' : dims.services[0] || ''
+  applyScope()
   await refreshCarriers()
   await refreshZones()
   await load()
@@ -71,7 +87,7 @@ onMounted(async () => {
     <div class="filter-group">
       <label>服务环节</label>
       <select v-model="filters.service">
-        <option v-for="s in dims.services" :key="s" :value="s">{{ s }}</option>
+        <option v-for="s in svcOptions" :key="s" :value="s">{{ s }}</option>
       </select>
     </div>
     <div class="filter-group" v-if="isLastmile">
