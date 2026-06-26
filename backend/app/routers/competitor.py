@@ -121,7 +121,7 @@ async def compare(
     #   单档承运商(如京东 0-20 一口价) -> 各档同价, 标"平价"
     #   多档承运商(阶梯价) -> 取上一档, 标"↑档"
     fill_cells = {}  # (zone,tier,vendor) -> "平价"|"↑档"
-    if not use_size:
+    if service == "尾程派送":  # 仅尾程做阶梯/平价填充; 仓内各家计费档差异大, 只显示真实档
         def kgnum(t):
             ts = str(t)
             if "续重" in ts or "oz" in ts or "lb" in ts:
