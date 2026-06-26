@@ -131,7 +131,17 @@ async def current(biz_type: str = "海运", transport_type: str | None = None,
             select(CostTrack).where(CostTrack.lane_id == l.id)
             .order_by(CostTrack.effective_date)
         )).scalars().all()
+        base = {
+            "lane": l.lane, "unit": l.unit, "currency": l.currency,
+            "transport_type": l.transport_type, "country": l.country,
+            "dest_ports": l.dest_ports, "carrier": l.carrier,
+            "extra_fee": float(l.extra_fee) if l.extra_fee is not None else None,
+        }
         if not ts:
+            # 无历史价（如空运待录入）：仍列出，标"待录入"
+            rows.append({**base, "amount": None, "effective_date": None,
+                         "end_date": None, "prev_amount": None, "change_pct": None,
+                         "pending": True})
             continue
         cur = None
         for t in ts:
@@ -145,15 +155,12 @@ async def current(biz_type: str = "海运", transport_type: str | None = None,
         if prev and float(prev.amount):
             chg = round((float(cur.amount) - float(prev.amount)) / float(prev.amount) * 100, 1)
         rows.append({
-            "lane": l.lane, "unit": l.unit, "currency": l.currency,
-            "transport_type": l.transport_type, "country": l.country,
-            "dest_ports": l.dest_ports, "carrier": l.carrier,
-            "extra_fee": float(l.extra_fee) if l.extra_fee is not None else None,
+            **base,
             "amount": float(cur.amount),
             "effective_date": cur.effective_date.isoformat(),
             "end_date": cur.end_date.isoformat() if cur.end_date else None,
             "prev_amount": float(prev.amount) if prev else None,
-            "change_pct": chg,
+            "change_pct": chg, "pending": False,
         })
     return {"biz_type": biz_type, "as_of": today.isoformat(), "rows": rows}
 

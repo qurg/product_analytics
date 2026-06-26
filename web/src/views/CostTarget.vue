@@ -8,6 +8,7 @@ import {
 const biz = ref('海运')                 // 海运 / 跨境到仓
 const transport = ref('海运')           // 跨境到仓下: 海运 / 空运
 const isCB = computed(() => biz.value === '跨境到仓')
+const hasData = computed(() => trend.value.series.some((s) => s.points && s.points.length))
 
 const trend = ref({ series: [] })
 const current = ref({ rows: [] })
@@ -46,8 +47,9 @@ async function load() {
 }
 
 function renderChart() {
-  if (!chartEl.value) return
+  if (!hasData.value || !chartEl.value) return
   if (!chart) chart = echarts.init(chartEl.value)
+  chart.resize()
   const series = trend.value.series
     .filter((s) => selectedLanes.value.includes(s.lane))
     .map((s) => ({
@@ -187,7 +189,10 @@ window.addEventListener('resize', () => chart && chart.resize())
                 :class="{ active: selectedLanes.includes(s.lane) }" @click="toggleLane(s.lane)">{{ s.lane }}</span>
         </div>
       </div>
-      <div ref="chartEl" style="height:340px"></div>
+      <div v-show="hasData" ref="chartEl" style="height:340px"></div>
+      <div v-if="!hasData" style="height:160px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px">
+        暂无历史目标成本（如空运待询价）。点右上「开一期录入」录入后这里显示趋势。
+      </div>
     </div>
 
     <div class="card">
@@ -206,8 +211,11 @@ window.addEventListener('resize', () => chart && chart.resize())
             <td v-if="isCB" style="font-size:12px;color:var(--text3)">{{ r.country }}</td>
             <td style="color:var(--text3);font-size:12px">{{ r.dest_ports }}</td>
             <td v-if="!isCB" style="font-size:12px">{{ r.carrier }}</td>
-            <td><b>{{ fmt(r.amount) }}</b> <span style="color:var(--text3);font-size:11px">{{ r.currency }}/{{ r.unit }}</span></td>
-            <td style="font-size:12px;color:var(--text3)">{{ r.effective_date }} ~ {{ r.end_date || '' }}</td>
+            <td>
+              <template v-if="r.amount != null"><b>{{ fmt(r.amount) }}</b> <span style="color:var(--text3);font-size:11px">{{ r.currency }}/{{ r.unit }}</span></template>
+              <span v-else style="color:#F29900;font-size:12px">待录入</span>
+            </td>
+            <td style="font-size:12px;color:var(--text3)">{{ r.effective_date ? (r.effective_date + ' ~ ' + (r.end_date || '')) : '—' }}</td>
             <td :class="r.change_pct > 0 ? 'c-red' : (r.change_pct < 0 ? 'c-green' : '')">
               <template v-if="r.change_pct != null">
                 {{ r.change_pct > 0 ? '▲' : (r.change_pct < 0 ? '▼' : '') }}{{ Math.abs(r.change_pct) }}%
