@@ -43,6 +43,8 @@ async function load() {
 }
 
 const fmt = (v) => (v == null ? '—' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 4 }))
+const fmtc = (v) => (v == null ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: v >= 100 ? 0 : (v >= 1 ? 2 : 3) }))
+const unitSuffix = (u) => (u || '').replace(/^[A-Z]{3}/, '')
 
 watch(() => [filters.country, filters.service], async () => { await refreshCarriers(); load() })
 watch(() => filters.carrier, async () => { await refreshZones(); load() })
@@ -86,7 +88,7 @@ onMounted(async () => {
       </select>
     </div>
     <div class="spacer" style="margin-left:auto;font-size:12px;color:var(--text3)" v-if="data">
-      单位：{{ data.unit }}（同币种横比，我司={{ data.our }}）
+      单位：{{ data.base_currency }}{{ unitSuffix(data.unit) }}（按京东币种折算横比，我司={{ data.our }}）
     </div>
   </div>
 
@@ -117,9 +119,9 @@ onMounted(async () => {
             <td>{{ r.tier }}</td>
             <td v-for="v in data.vendors" :key="v"
                 :style="r.cheapest === v ? 'background:var(--green-bg)' : ''">
-              {{ fmt(r.prices[v]) }}<span v-if="r.mixed_currency && r.prices[v] != null" style="color:var(--text3);font-size:11px"> {{ r.currencies[v] }}</span><span v-if="r.fill && r.fill[v]" :title="r.fill[v]==='平价' ? '区间统一平价(单档)' : '该承运商无此档，按计费规则取覆盖该重量的上一档价'" style="color:var(--text3);font-size:10px;margin-left:3px">{{ r.fill[v] }}</span>
+              {{ fmt(r.prices[v]) }}<span v-if="r.prices[v] != null && r.currencies[v] && r.currencies[v] !== data.base_currency" style="color:var(--text3);font-size:11px"> {{ r.currencies[v] }}<template v-if="r.conv && r.conv[v] != null">≈{{ fmtc(r.conv[v]) }}</template></span><span v-if="r.fill && r.fill[v]" :title="r.fill[v]==='平价' ? '区间统一平价(单档)' : '该承运商无此档，按计费规则取覆盖该重量的上一档价'" style="color:var(--text3);font-size:10px;margin-left:3px">{{ r.fill[v] }}</span>
             </td>
-            <td>{{ r.mixed_currency ? '币种不一' : (r.cheapest || '—') }}</td>
+            <td>{{ r.cheapest || '—' }}</td>
             <td :class="r.our_vs_best > 0 ? 'c-red' : 'c-green'">
               {{ r.our_vs_best == null ? '—' : (r.our_vs_best > 0 ? '+' : '') + r.our_vs_best + '%' }}
             </td>
@@ -128,7 +130,7 @@ onMounted(async () => {
         </tbody>
       </table>
       <p style="font-size:12px;color:var(--text3);margin-top:12px">
-        绿色=该档最低价；「我司vs最低」为正表示京东比最便宜竞对贵的百分比。<b>平价</b>=该承运商整段一口价；<b>↑档</b>=无此重量档，按计费规则取覆盖该重量的上一档价；超过其最大档则留空。仓内：入库/出库按单件重量档，存储按货型首计费档；均同币种内对比。
+        绿色=该档最低价；「我司vs最低」为正表示京东比最便宜竞对贵的百分比。跨币种已按<b>京东币种({{ data.base_currency }})</b>用内置近似汇率折算后对比，竞对单元显示「原币种≈折算值」。<b>平价</b>=该承运商整段一口价；<b>↑档</b>=无此重量档，按计费规则取覆盖该重量的上一档价；超过其最大档则留空。仓内：入库/出库按单件重量档，存储按货型首计费档。
       </p>
     </div>
     <div class="card" v-else-if="!loading">

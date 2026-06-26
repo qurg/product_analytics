@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import distinct, select
@@ -10,6 +10,26 @@ from ..models import CompetitorPrice
 router = APIRouter(prefix="/api/competitor", tags=["competitor"])
 
 OUR = "京东"  # 我司
+
+# 汇率: 1 单位该币种 = 多少 USD (内置近似值, 2026Q2; 可按需调整)。
+# 跨币种对比时统一折算后再比, 基准币种取"京东在该国的报价币种"。
+FX_USD = {
+    "USD": 1.0, "CNY": 0.14, "EUR": 1.08, "GBP": 1.27, "JPY": 0.0064,
+    "KRW": 0.00073, "CAD": 0.73, "AUD": 0.66, "PLN": 0.25, "MXN": 0.059,
+    "VND": 0.000039, "THB": 0.028, "SGD": 0.74, "HKD": 0.128, "MYR": 0.21,
+    "AED": 0.272, "SAR": 0.267, "CZK": 0.043, "SEK": 0.094,
+}
+
+
+def to_ccy(price, frm, base):
+    """把 price 从 frm 币种折算到 base 币种; 无汇率则返回 None。"""
+    if price is None or not frm or not base:
+        return None
+    if frm == base:
+        return price
+    if frm not in FX_USD or base not in FX_USD:
+        return None
+    return price * FX_USD[frm] / FX_USD[base]
 
 
 @router.get("/dimensions")
@@ -80,6 +100,13 @@ async def compare(
 
     currency = rows[0].currency
     unit = rows[0].unit
+    # 基准币种 = 京东在该国的报价币种(我司口径); 无京东数据则取最常见币种
+    jd_curs = [r.currency for r in rows if r.vendor == OUR and r.currency]
+    if jd_curs:
+        base_ccy = Counter(jd_curs).most_common(1)[0][0]
+    else:
+        all_curs = [r.currency for r in rows if r.currency]
+        base_ccy = Counter(all_curs).most_common(1)[0][0] if all_curs else ""
     # 固定四家列（我司京东在前），无数据显示 —，便于看清覆盖缺口
     CANON = [OUR, "4px", "WINIT", "谷仓"]
     present = {r.vendor for r in rows}
@@ -178,21 +205,25 @@ async def compare(
         z, t = k
         prices = grouped[k]
         valid = {v: p for v, p in prices.items() if p > 0}
+        # 折算到基准币种(京东币种)后比较
+        conv = {v: to_ccy(p, cur_of[k].get(v), base_ccy) for v, p in valid.items()}
+        comparable = {v: cv for v, cv in conv.items() if cv is not None}
         currs = {cur_of[k][v] for v in valid}
-        mixed = len(currs) > 1
-        cheapest = None if (mixed or not valid) else min(valid, key=valid.get)
-        our = prices.get(OUR)
-        others = {v: p for v, p in valid.items() if v != OUR}
+        mixed = len(currs) > 1  # 是否发生了跨币种(前端提示用)
+        cheapest = min(comparable, key=comparable.get) if comparable else None
+        our_c = comparable.get(OUR)
+        others_c = {v: cv for v, cv in comparable.items() if v != OUR}
         diff = None
-        if not mixed and our is not None and others:
-            base = min(others.values())
-            if base:
-                diff = round((our - base) / base * 100, 1)
+        if our_c is not None and others_c:
+            best = min(others_c.values())
+            if best:
+                diff = round((our_c - best) / best * 100, 1)
         out_rows.append({
             "zone": z,
             "tier": t,
             "prices": {v: prices.get(v) for v in vendors},
             "currencies": {v: cur_of[k].get(v) for v in vendors},
+            "conv": {v: (round(conv[v], 4) if conv.get(v) is not None and cur_of[k].get(v) != base_ccy else None) for v in vendors},
             "fill": {v: fill_cells.get((z, t, v), "") for v in vendors},
             "cheapest": cheapest,
             "our_vs_best": diff,
@@ -203,6 +234,7 @@ async def compare(
         "country": country,
         "service": service,
         "currency": currency,
+        "base_currency": base_ccy,
         "unit": unit,
         "vendors": vendors,
         "our": OUR,
