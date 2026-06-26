@@ -3,9 +3,15 @@
 录入以"开一期批量保存"为主力，辅以单条增改与 Excel 导入。
 """
 
+import io
+import json
+from collections import defaultdict
 from datetime import date, timedelta
+from pathlib import Path
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
 from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +20,7 @@ from ..db import get_db
 from ..models import CostLane, CostTrack
 
 router = APIRouter(prefix="/api/cost", tags=["cost"])
+SEED_DIR = Path(__file__).resolve().parents[2] / "seed"
 
 
 def lane_dict(l: CostLane) -> dict:
@@ -263,3 +270,82 @@ async def delete_track(tid: int, db: AsyncSession = Depends(get_db)):
         await db.delete(obj)
         await db.commit()
     return {"ok": True}
+
+
+# ---------- 导出: 还原成与原始 tracking 表一致的 3 sheet xlsx ----------
+async def _lane_tracks(db, biz_type):
+    """返回 {lane_id: lane}, {lane_id: [tracks asc]} (限定 biz_type)。"""
+    lanes = (await db.execute(
+        select(CostLane).where(CostLane.biz_type == biz_type)
+    )).scalars().all()
+    lmap = {l.id: l for l in lanes}
+    tmap = defaultdict(list)
+    if lmap:
+        ts = (await db.execute(
+            select(CostTrack).where(CostTrack.lane_id.in_(list(lmap)))
+            .order_by(CostTrack.effective_date)
+        )).scalars().all()
+        for t in ts:
+            tmap[t.lane_id].append(t)
+    return lmap, tmap
+
+
+@router.get("/export")
+async def export(db: AsyncSession = Depends(get_db)):
+    wb = Workbook()
+    wb.remove(wb.active)
+
+    # ===== 跨境到仓 (逐仓逐期; 区域价铺到每个仓) =====
+    cb_lanes, cb_tracks = await _lane_tracks(db, "跨境到仓")
+    # (region, transport) -> tracks
+    rt = {}
+    for lid, l in cb_lanes.items():
+        rt[(l.region, l.transport_type)] = cb_tracks.get(lid, [])
+    ws = wb.create_sheet("跨境到仓")
+    ws.append(["生效日期", "结束日期", "起运仓", "起运港（三字码）", "目的港（三字码）",
+               "目的仓名称", "目的仓编码", "目的地仓类型（京东仓/非京东仓）", "运输类型（空运/海运）",
+               "PD", "目标成本单价A", "计费单位", "币种", "目标成本单价B", "计费单位", "币种"])
+    cb_detail = json.loads((SEED_DIR / "cb_detail.json").read_text(encoding="utf-8"))
+    for w in cb_detail:
+        for t in rt.get((w["region"], w["transport_type"]), []):
+            ws.append([t.effective_date, t.end_date, "", w["origin_port"], w["dest_port"],
+                       w["wh_name"], w["wh_code"], w["wh_type"], w["transport_type"],
+                       w["pd"], float(t.amount), w["unit"], w["currency"], "", "", ""])
+
+    # ===== 海运 (线路级, 直接对应原表) =====
+    hy_lanes, hy_tracks = await _lane_tracks(db, "海运")
+    ws = wb.create_sheet("海运")
+    ws.append(["生效日期", "结束日期", "线路", "起运港（英文逗号）", "目的港（英文逗号）",
+               "PD", "船东（英文逗号）", "柜型", "目标成本", "计费单位", "币种", "起运港费用"])
+    for lid, l in hy_lanes.items():
+        for t in hy_tracks.get(lid, []):
+            ws.append([t.effective_date, t.end_date, l.lane, l.origin_ports, l.dest_ports,
+                       l.pd, l.carrier, l.container_type, float(t.amount), l.unit, l.currency,
+                       float(l.extra_fee) if l.extra_fee is not None else None])
+
+    # ===== 小包 (逐PD逐期; 线路 all-in 铺到每个PD, 揽收/库内/清关取固定) =====
+    sp_lanes, sp_tracks = await _lane_tracks(db, "小包")
+    line_tracks = {}
+    for lid, l in sp_lanes.items():
+        line_tracks[l.region] = sp_tracks.get(lid, [])
+    ws = wb.create_sheet("小包")
+    ws.append(["生效日期", "结束日期", "线路", "PD", "目的国（二字码）",
+               "A-揽收", "计费单位", "币种", "A-库内", "计费单位", "币种",
+               "B-all in", "计费单位", "币种", "C-清关", "计费单位", "币种"])
+    sp_detail = json.loads((SEED_DIR / "sp_detail.json").read_text(encoding="utf-8"))
+    for p in sp_detail:
+        for t in line_tracks.get(p["region"], []):
+            ws.append([t.effective_date, t.end_date, p["region"], p["pd"], p["country"],
+                       p["lanshou"], p["lanshou_unit"], p["lanshou_cur"],
+                       p["kunei"], p["kunei_unit"], p["kunei_cur"],
+                       float(t.amount), p["allin_unit"], p["allin_cur"],
+                       p["qingguan"], p["qingguan_unit"], p["qingguan_cur"]])
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=target_cost_tracking.xlsx"},
+    )

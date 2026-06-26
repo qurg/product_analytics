@@ -113,6 +113,7 @@ async function saveBatch() {
   } finally { saving.value = false }
 }
 const fmt = (v) => (v == null ? '—' : Number(v).toLocaleString())
+function exportXlsx() { window.location.href = '/api/cost/export' }
 
 watch(sel, () => load())
 onMounted(() => load())
@@ -125,6 +126,7 @@ window.addEventListener('resize', () => chart && chart.resize())
       <select v-model="sel"><option v-for="o in BIZ_OPTS" :key="o.label" :value="o.label">{{ o.label }}</option></select>
     </div>
     <button class="btn" @click="openEntry">＋ 开一期录入</button>
+    <button class="btn btn-ghost" @click="exportXlsx">⬇ 导出全表</button>
     <span class="spacer" style="margin-left:auto;font-size:12px;color:var(--text3)">目标成本 · 市场价跟踪</span>
   </div>
 
